@@ -10,6 +10,12 @@ class player(IntEnum):
     WHITE = 1
 
 
+def empty_tiles(board):
+    coords = np.where(board[2, ...] == 1)
+    idx = np.ravel_multi_index(coords, board.shape[1:])
+    return idx
+
+
 class HexEnv(gym.Env):
     """
     Hex environment. Play against a fixed opponent.
