@@ -76,7 +76,7 @@ class HexEnv(gym.Env):
 
         return self.board, reward, self.done, {'state': self.board}
 
-    def render(self, mode='asi', close=False):
+    def render(self, mode='ascii', close=False):
         board = self.board
         print(" " * 6, end="")
         for j in range(board.shape[1]):
