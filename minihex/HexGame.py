@@ -201,23 +201,3 @@ class HexEnv(gym.Env):
         for pos in self.front[player]:
             front_array[pos] = 1.0
         return front_array
-
-
-if __name__ == "__main__":
-    game = HexEnv()
-    action_space = game.action_space
-
-    def random_policy(state):
-        possible_moves = game.get_possible_actions()
-        action_idx = np.random.randint(len(possible_moves))
-        return possible_moves[action_idx]
-
-    game.opponent_policy = random_policy
-
-    import tqdm
-    for rollout in tqdm.tqdm(range(2000)):
-        state = game.reset()
-        done = False
-        while not done:
-            action = random_policy(state)
-            state, _, done, _ = game.step(action)
