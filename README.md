@@ -19,9 +19,7 @@ respectively.
 
 ## Installation
 
-```
-pip install minihex
-```
+~~pip install minihex~~ (TODO)
 
 Editable installation (if you wish to tweak the environment):
 ```
@@ -35,6 +33,7 @@ Currently the enviornment is missing the following features to go to version 1.0
 
 - The swap action that is used to mitigate the disadvantage of playing second.
 - RGB rendering mode
+- add environment to pypi
 
 ## Bugs and Contributing
 If you encounter problems, check the [GitHub issue page](https://github.com/FirefoxMetzger/minihex/issues) or open a new issue there.
