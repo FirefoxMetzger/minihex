@@ -34,10 +34,10 @@ class HexEnv(gym.Env):
 
         self.action_space = spaces.Discrete(self.board_size ** 2 + 1)
 
-        # state space
         self.board = np.zeros((3, self.board_size, self.board_size))
         self.move_count = 0
-        self.to_play_color = player.BLACK
+        self.active_player = player.BLACK
+        self.done = False
 
         # speed optimization
         self.front = {player.BLACK: set(), player.WHITE: set()}
@@ -58,11 +58,11 @@ class HexEnv(gym.Env):
                                        for x in [0, 1]
                                        for y in range(self.board_size))
 
-        self.to_play_color = player.BLACK
+        self.active_player = player.BLACK
         self.done = False
 
         # Let the opponent play if it's not the agent's turn
-        if self.player_color != self.to_play_color:
+        if self.player_color != self.active_player:
             self.opponent_move()
 
         return self.board
@@ -115,13 +115,13 @@ class HexEnv(gym.Env):
     def make_move(self, action):
         if self.is_reisgn_move(action):
             self.done = True
-            if self.to_play_color == self.player_color:
+            if self.active_player == player.BLACK:
                 return self.board, 1, True, {'state': self.board}
             else:
                 return self.board, -1, True, {'state': self.board}
 
         if not self.is_valid_move(action):
-            if self.to_play_color != self.player_color:
+            if self.active_player != self.player_color:
                 raise Exception(("Opponent policy played illegal move"
                                  f" {self.action_to_coordinate(action)}"))
             else:
@@ -130,10 +130,10 @@ class HexEnv(gym.Env):
 
         coords = self.action_to_coordinate(action)
         self.board[(2, *coords)] = 0
-        self.board[(self.to_play_color, *coords)] = 1
+        self.board[(self.active_player, *coords)] = 1
 
         reward = self.game_finished(action)
-        self.to_play_color = (self.to_play_color + 1) % 2
+        self.active_player = (self.active_player + 1) % 2
         return reward
 
     def coordinate_to_action(self, coords):
@@ -147,7 +147,7 @@ class HexEnv(gym.Env):
         return self.coordinate_to_action(coords)
 
     def game_finished(self, action):
-        active_player = self.to_play_color
+        active_player = self.active_player
         connections = np.array([[-1, -1,  0,  0,  1,  1],
                                 [0,   1, -1,  1, -1,  0]])
 
