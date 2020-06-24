@@ -20,4 +20,8 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.7',
+    install_requires=[
+        'numpy>=1.18.2',
+        'gym>=0.17.1'
+    ]
 )
