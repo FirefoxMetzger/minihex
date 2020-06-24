@@ -23,7 +23,7 @@ respectively.
 
 Editable installation (if you wish to tweak the environment):
 ```
-git clone 
+git clone https://github.com/FirefoxMetzger/minihex.git
 pip install -e minihex/
 ```
 
