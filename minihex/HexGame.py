@@ -21,7 +21,7 @@ class HexGame(object):
     Hex Game Environment.
     """
 
-    def __init__(self, active_player, board, player):
+    def __init__(self, active_player, board, focus_player):
         self.board = board
 
         self.front = {player.WHITE: set((y, x)
@@ -31,8 +31,9 @@ class HexGame(object):
                                         for y in range(2)
                                         for x in range(self.board_size))}
         self.active_player = active_player
-        self.player = player
+        self.player = focus_player
         self.done = False
+        self.winner = None
 
     @property
     def board_size(self):
@@ -63,6 +64,7 @@ class HexGame(object):
 
         winner = self.update_front(action)
         self.active_player = (self.active_player + 1) % 2
+        self.winner = winner
         return winner
 
     def coordinate_to_action(self, coords):
@@ -177,15 +179,16 @@ class HexEnv(gym.Env):
         if self.player != self.active_player:
             self.opponent_move()
 
-        return self.simulator.board
+        return (self.simulator.board, self.active_player)
 
     def step(self, action):
         if not self.simulator.done:
             self.winner = self.simulator.make_move(action)
 
+        opponent_action = None
         if not self.simulator.done:
-            action = self.opponent_policy(self.simulator.board)
-            self.winner = self.simulator.make_move(action)
+            opponent_action = self.opponent_policy(self.simulator.board, self.opponent)
+            self.winner = self.simulator.make_move(opponent_action)
 
         if self.winner == self.player:
             reward = 1
@@ -194,7 +197,13 @@ class HexEnv(gym.Env):
         else:
             reward = 0
 
-        return (self.simulator.board, reward,
+        info = {
+            'state': self.simulator.board,
+            'last_move_opponent': opponent_action,
+            'last_move_player': action
+        }
+
+        return ((self.simulator.board, self.active_player), reward,
                 self.simulator.done, {'state': self.simulator.board})
 
     def render(self, mode='ascii', close=False):
