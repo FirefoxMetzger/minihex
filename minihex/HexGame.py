@@ -10,6 +10,13 @@ class player(IntEnum):
     WHITE = 1
 
 
+class Side(IntEnum):
+    NORTH = 0
+    EAST = 1
+    SOUTH = 2
+    WEST = 3
+
+
 def empty_tiles(board):
     coords = np.where(board[2, ...] == 1)
     idx = np.ravel_multi_index(coords, board.shape[1:])
@@ -29,12 +36,21 @@ class HexGame(object):
             "SWAP": self.board_size ** 2 + 1
         })
 
-        self.front = {player.WHITE: set((y, x)
-                                        for y in range(self.board_size)
-                                        for x in range(2)),
-                      player.BLACK: set((y, x)
-                                        for y in range(2)
-                                        for x in range(self.board_size))}
+        self.connected_stones = {
+            player.WHITE: np.zeros_like(self.board[0, ...]),
+            player.BLACK: np.zeros_like(self.board[0, ...])
+        }
+        self.always_connected = np.zeros((len(Side), *board[0, ...].shape))
+        self.always_connected[Side.NORTH, 0, :] = 1
+        self.always_connected[Side.EAST, :, -1] = 1
+        self.always_connected[Side.SOUTH, -1, :] = 1
+        self.always_connected[Side.WEST, :, 0] = 1
+
+        self.active_player = player.WHITE
+        self.flood_fill((0, 0))
+        self.active_player = player.BLACK
+        self.flood_fill((0, 0))
+
         self.active_player = active_player
         self.player = focus_player
         self.done = False
@@ -83,61 +99,70 @@ class HexGame(object):
         return move_actions  #+ [self.special_moves.RESIGN]
 
     def update_front(self, action):
-        active_player = self.active_player
-        connections = np.array([[-1, -1,  0,  0,  1,  1],
-                                [0,   1, -1,  1, -1,  0]])
-
-        position = np.array(self.action_to_coordinate(action))
-
-        positions_to_test = [position]
-        while len(positions_to_test) > 0:
-            current_position = positions_to_test.pop()
-
-            if self.board[(active_player, *position)] == 0:
-                continue
-
-            if tuple(current_position) in self.front[active_player]:
-                continue
-
-            neighbours = list()
-            check_neighbours = False
-            for direction in connections.T:
-                neighbour_position = current_position + direction
-
-                if neighbour_position[0] >= self.board_size:
-                    if active_player == player.WHITE:
-                        self.done = True
-                        return player.WHITE
-                    else:
-                        continue
-
-                if neighbour_position[1] >= self.board_size:
-                    if active_player == player.BLACK:
-                        self.done = True
-                        return player.BLACK
-                    else:
-                        continue
-
-                if np.any(neighbour_position < 0):
-                    continue
-
-                if self.board[(active_player, *neighbour_position)] == 1:
-                    neighbours.append(neighbour_position)
-
-                if tuple(neighbour_position) in self.front[active_player]:
-                    self.front[active_player].add(tuple(current_position))
-                    check_neighbours = True
-
-            if check_neighbours:
-                positions_to_test += neighbours
+        position = self.action_to_coordinate(action)
+        self.flood_fill(position)
+        if self.active_player == player.BLACK:
+            conn = self.connected_stones[player.BLACK]
+            if np.any(conn[-1, :] == 1):
+                return player.BLACK
+        else:
+            conn = self.connected_stones[player.WHITE]
+            if np.any(conn[:, -1] == 1):
+                return player.WHITE
         return None
 
-    # function for introspection
-    def front_array(self, player):
-        front_array = np.zeros((self.board_size, self.board_size))
-        for pos in self.front[player]:
-            front_array[pos] = 1.0
-        return front_array
+    def neighbours(self, position):
+        max_val = self.board_size - 1
+        if position[0] == 0 and position[1] == 0:
+            connections = np.array([[0, 1], [1, 0]])
+        elif position[0] == max_val and position[1] == max_val:
+            connections = np.array([[-1, 0], [0, -1]])
+        elif position[0] == 0 and position[1] == max_val:
+            connections = np.array([[0, -1], [1, -1], [1, 0]])
+        elif position[0] == max_val and position[1] == 0:
+            connections = np.array([[-1, 0], [-1, 1], [0, 1]])
+        elif position[0] == 0:
+            connections = np.array([[0, -1], [0, 1], [1, -1], [1, 0]])
+        elif position[0] == max_val:
+            connections = np.array([[-1, 0], [-1, 1], [0, -1], [0, 1]])
+        elif position[1] == 0:
+            connections = np.array([[-1, 0], [-1, 1], [0, 1], [1, 0]])
+        elif position[1] == max_val:
+            connections = np.array([[-1, 0], [0, -1], [1, -1], [1, 0]])
+        else:
+            connections = np.array([[-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0]])
+        return connections
+
+    def flood_fill(self, position):
+        board = self.board[self.active_player, ...]
+        side = Side.NORTH if self.active_player == player.BLACK else Side.WEST
+        connected_stones = self.connected_stones[self.active_player]
+        connections = self.neighbours(position)
+        always_connected = self.always_connected[side, ...]
+
+        positions_to_test = [np.array(position)]
+        while len(positions_to_test) > 0:
+            current_position = positions_to_test.pop()
+            current_position_tuple = tuple(current_position)
+
+            if board[current_position_tuple] == 0:
+                continue
+
+            if connected_stones[current_position_tuple] == 1:
+                continue
+
+            neighbour_positions = current_position[np.newaxis, ...] + self.neighbours(current_position)
+            ny = neighbour_positions[:, 0]
+            nx = neighbour_positions[:, 1]
+            adjacent_connections = connected_stones[ny, nx]
+            adjacent_stones = board[ny, nx]
+
+            if (np.any(adjacent_connections == 1) or
+                    always_connected[current_position_tuple] == 1):
+                connected_stones[current_position_tuple] = 1
+                neighbours_to_test = (adjacent_connections == 0) & (adjacent_stones == 1)
+                for neighbour in neighbour_positions[neighbours_to_test]:
+                    positions_to_test.append(neighbour)
 
 
 class HexEnv(gym.Env):
