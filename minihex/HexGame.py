@@ -24,6 +24,11 @@ class HexGame(object):
     def __init__(self, active_player, board, focus_player):
         self.board = board
 
+        self.special_moves = IntEnum("SpecialMoves", {
+            "RESIGN": self.board_size ** 2,
+            "SWAP": self.board_size ** 2 + 1
+        })
+
         self.front = {player.WHITE: set((y, x)
                                         for y in range(self.board_size)
                                         for x in range(2)),
@@ -39,9 +44,6 @@ class HexGame(object):
     def board_size(self):
         return self.board.shape[1]
 
-    def is_reisgn_move(self, action):
-        return action == self.board.shape[1] ** 2
-
     def is_valid_move(self, action):
         coords = self.action_to_coordinate(action)
         if self.board[2, coords[0], coords[1]] == 1:
@@ -50,7 +52,7 @@ class HexGame(object):
             return False
 
     def make_move(self, action):
-        if self.is_reisgn_move(action):
+        if action == self.special_moves.RESIGN:
             self.done = True
             return (self.active_player + 1) % 2
 
@@ -63,6 +65,8 @@ class HexGame(object):
         self.board[(self.active_player, *coords)] = 1
 
         winner = self.update_front(action)
+        if np.all(self.board[2, :, :] == 0):
+            self.done = True
         self.active_player = (self.active_player + 1) % 2
         self.winner = winner
         return winner
@@ -75,7 +79,8 @@ class HexGame(object):
 
     def get_possible_actions(self):
         coords = np.where(self.board[2, ...] == 1)
-        return self.coordinate_to_action(coords)
+        move_actions = self.coordinate_to_action(coords)
+        return move_actions  #+ [self.special_moves.RESIGN]
 
     def update_front(self, action):
         active_player = self.active_player
@@ -125,9 +130,6 @@ class HexGame(object):
 
             if check_neighbours:
                 positions_to_test += neighbours
-
-        if np.all(self.board[2, :, :] == 0):
-            self.done = True
         return None
 
     # function for introspection
@@ -187,9 +189,7 @@ class HexEnv(gym.Env):
 
         opponent_action = None
         if not self.simulator.done:
-            opponent_action = self.opponent_policy(self.simulator.board,
-                                                   self.opponent)
-            self.winner = self.simulator.make_move(opponent_action)
+            opponent_action = self.opponent_move()
 
         if self.winner == self.player:
             reward = 1
@@ -207,7 +207,7 @@ class HexEnv(gym.Env):
         return ((self.simulator.board, self.active_player), reward,
                 self.simulator.done, {'state': self.simulator.board})
 
-    def render(self, mode='ascii', close=False):
+    def render(self, mode='ansi', close=False):
         board = self.simulator.board[:, 2:-2, 2:-2]
         print(" " * 6, end="")
         for j in range(board.shape[1]):
@@ -232,3 +232,9 @@ class HexEnv(gym.Env):
             print(" " * (i * 3 + 1), end="")
             print("-" * (board.shape[1] * 7 - 1), end="")
             print("")
+
+    def opponent_move(self):
+        opponent_action = self.opponent_policy(self.simulator.board,
+                                               self.opponent)
+        self.winner = self.simulator.make_move(opponent_action)
+        return opponent_action
