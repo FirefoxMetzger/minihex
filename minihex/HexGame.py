@@ -187,7 +187,8 @@ class HexEnv(gym.Env):
 
         opponent_action = None
         if not self.simulator.done:
-            opponent_action = self.opponent_policy(self.simulator.board, self.opponent)
+            opponent_action = self.opponent_policy(self.simulator.board,
+                                                   self.opponent)
             self.winner = self.simulator.make_move(opponent_action)
 
         if self.winner == self.player:
