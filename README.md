@@ -50,10 +50,12 @@ while not done:
     action = random_policy(state)
     state, reward, done, _ = env.step(action)
 
+env.render()
+
 if reward == -1:
-    print("Black Won")
+    print("Player (Black) Lost")
 elif reward == 1:
-    print("White Won")
+    print("Player (Black) Won")
 else:
     print("Draw")
 
