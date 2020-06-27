@@ -3,7 +3,7 @@
 An [OpenAI gym](https://github.com/openai/gym/) environment that allows an 
 agent to play the game of [Hex](https://en.wikipedia.org/wiki/Hex_(board_game)).
 The aim for this environment is to be lean and have fast rollouts, as well as,
-variable board size. With random actions it currently achieves **~250 games per 
+variable board size. With random actions it currently achieves **~380 games per 
 second** in a 5x5 grid on a single core (Intel Xenon E3-1230 @3.3GHz).
 
 Hex is a two player game and needs to be converted into a "single agent 
@@ -33,21 +33,23 @@ pip install -e minihex/
 import gym
 import minihex
 import numpy as np
+from minihex import player
 
 
-def random_policy(state):
+def random_policy(board, player):
     # never surrender :)
-    idx = minihex.empty_tiles(state)
+    idx = minihex.empty_tiles(board)
     choice = np.random.randint(len(idx))
     return idx[choice]
 
 
 env = gym.make("hex-v0", opponent_policy=random_policy)
-state = env.reset()
 
+state = env.reset()
 done = False
 while not done:
-    action = random_policy(state)
+    board, player = state
+    action = random_policy(board, player)
     state, reward, done, _ = env.step(action)
 
 env.render()
@@ -58,6 +60,7 @@ elif reward == 1:
     print("Player (Black) Won")
 else:
     print("Draw")
+
 
 ```
 
