@@ -22,6 +22,7 @@ def empty_tiles(board):
     idx = np.ravel_multi_index(coords, board.shape[1:])
     return idx
 
+CONNECTIONS = np.array([[-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0]])
 
 class HexGame(object):
     """
@@ -30,26 +31,13 @@ class HexGame(object):
 
     def __init__(self, active_player, board, focus_player, connected_stones=None):
         self.board = board
+        # track number of empty feelds for speed
+        self.empty_fields = np.count_nonzero(board[2, ...])
 
         self.special_moves = IntEnum("SpecialMoves", {
             "RESIGN": self.board_size ** 2,
             "SWAP": self.board_size ** 2 + 1
         })
-
-        # if connected_stones is None:
-        #     self.connected_stones = {
-        #         player.WHITE: np.pad(np.zeros_like(self.board[0, ...]), 1),
-        #         player.BLACK: np.pad(np.zeros_like(self.board[0, ...]), 1)
-        #     }
-        #     self.connected_stones[player.WHITE][:, 0] = 1
-        #     self.connected_stones[player.BLACK][0, :] = 1
-
-        #     self.active_player = player.WHITE
-        #     self.flood_fill((0, 0))
-        #     self.active_player = player.BLACK
-        #     self.flood_fill((0, 0))
-        # else:
-        #     self.connected_stones = connected_stones
 
         if connected_stones is None:
             self.regions = {
@@ -73,13 +61,13 @@ class HexGame(object):
             for y, row in enumerate(board[player.WHITE, ...]):
                 for x, value in enumerate(row):
                     if value == 1:
-                        self.flood_fill2((y, x))
+                        self.flood_fill((y, x))
 
             self.active_player = player.BLACK
             for y, row in enumerate(board[player.BLACK, ...]):
                 for x, value in enumerate(row):
                     if value == 1:
-                        self.flood_fill2((y, x))
+                        self.flood_fill((y, x))
 
         # import pdb; pdb.set_trace()
 
@@ -100,36 +88,31 @@ class HexGame(object):
             return False
 
     def make_move(self, action):
-        if action == self.special_moves.RESIGN:
-            self.done = True
-            self.winner = (self.active_player + 1) % 2
-            return (self.active_player + 1) % 2
+        # # currently resigning is not a possible option
+        # if action == self.special_moves.RESIGN:
+        #     self.done = True
+        #     self.winner = (self.active_player + 1) % 2
+        #     return (self.active_player + 1) % 2
 
         if not self.is_valid_move(action):
             raise Exception(("Illegal move "
                              f"{self.action_to_coordinate(action)}"))
 
-        coords = self.action_to_coordinate(action)
-        self.board[(2, *coords)] = 0
-        self.board[(self.active_player, *coords)] = 1
+        position = self.action_to_coordinate(action)
+        self.board[(2, *position)] = 0
+        self.board[(self.active_player, *position)] = 1
+        self.empty_fields -= 1
 
         winner = None
-        position = self.action_to_coordinate(action)
-        self.flood_fill2(position)
+        self.flood_fill(position)
 
-        if self.active_player == player.BLACK:
-            regions = self.regions[player.BLACK]
-            if np.any(regions[-1, :] == 1):
-                self.done = True
-                winner = player.BLACK
-        else:
-            regions = self.regions[player.WHITE]
-            if np.any(regions[:, -1] == 1):
-                self.done = True
-                winner = player.WHITE
+        regions = self.regions[self.active_player]
+        if regions[-1, -1] == 1:
+            self.done = True
+            winner = self.active_player
         self.winner = winner
 
-        if np.all(self.board[2, ...] == 0):
+        if self.empty_fields <= 0:
             self.done = True
             winner = None
 
@@ -147,58 +130,28 @@ class HexGame(object):
         move_actions = self.coordinate_to_action(coords)
         return move_actions  #+ [self.special_moves.RESIGN]
 
-    def flood_fill2(self, position):
+    def flood_fill(self, position):
         regions = self.regions[self.active_player]
-        connections = np.array([[-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0]])
 
-        current_position = np.array(position) + np.array([1, 1])
-        neighbour_positions = current_position[np.newaxis, ...] + connections
-        ny = neighbour_positions[:, 0]
-        nx = neighbour_positions[:, 1]
-        adjacent_regions = sorted(np.unique(regions[ny, nx]).tolist())
-
-        if adjacent_regions[0] == 0:
-            adjacent_regions.pop(0)
+        current_position = (position[0] + 1, position[1] + 1)
+        low_x = current_position[1] - 1
+        high_x = current_position[1] + 2
+        low_y = current_position[0] - 1
+        high_y = current_position[0] + 2
+        neighbourhood = regions[low_y:high_y, low_x:high_x].copy()
+        neighbourhood[0, 0] = 0
+        neighbourhood[2, 2] = 0
+        adjacent_regions = sorted(set(neighbourhood.flatten().tolist()))
+        adjacent_regions.pop(0)
 
         if len(adjacent_regions) == 0:
             regions[tuple(current_position)] = self.region_counter[self.active_player]
             self.region_counter[self.active_player] += 1
-        elif len(adjacent_regions) == 1:
-            regions[tuple(current_position)] = adjacent_regions[0]
         else:
             new_region_label = adjacent_regions.pop(0)
             regions[tuple(current_position)] = new_region_label
             for label in adjacent_regions:
                 regions[regions == label] = new_region_label
-
-    # @profile
-    def flood_fill(self, position):
-        board = np.zeros((self.board_size+2, self.board_size+2))
-        board[1:self.board_size+1, 1:self.board_size+1] = self.board[self.active_player, ...]
-        side = Side.NORTH if self.active_player == player.BLACK else Side.WEST
-        connected_stones = self.connected_stones[self.active_player]
-
-        connections = np.array([[-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0]])
-
-        positions_to_test = [np.array(position) + np.array([1, 1])]
-        while len(positions_to_test) > 0:
-            current_position = positions_to_test.pop()
-            current_position_tuple = tuple(current_position)
-
-            if connected_stones[current_position_tuple] == 1:
-                continue
-
-            neighbour_positions = current_position[np.newaxis, ...] + connections
-            ny = neighbour_positions[:, 0]
-            nx = neighbour_positions[:, 1]
-            adjacent_connections = connected_stones[ny, nx]
-            adjacent_stones = board[ny, nx]
-
-            connected_stones[current_position_tuple] = np.max(adjacent_connections)
-            if connected_stones[current_position_tuple] == 1:
-                neighbours_to_test = (adjacent_connections == 0) & (adjacent_stones == 1)
-                for neighbour in neighbour_positions[neighbours_to_test]:
-                    positions_to_test.append(neighbour)
 
 
 class HexEnv(gym.Env):
