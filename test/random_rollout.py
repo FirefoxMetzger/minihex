@@ -13,14 +13,12 @@ def random_policy(board, player):
 
 env = gym.make("hex-v0", opponent_policy=random_policy)
 
-import tqdm
-for _ in tqdm.tqdm(range(10000)):
-    state = env.reset()
-    done = False
-    while not done:
-        board, player = state
-        action = random_policy(board, player)
-        state, reward, done, _ = env.step(action)
+state = env.reset()
+done = False
+while not done:
+    board, player = state
+    action = random_policy(board, player)
+    state, reward, done, _ = env.step(action)
 
 env.render()
 
