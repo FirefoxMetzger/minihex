@@ -62,7 +62,6 @@ elif reward == 1:
 else:
     print("Draw")
 
-
 ```
 
 ## Limitations

@@ -4,21 +4,22 @@ import numpy as np
 from minihex import player
 
 
-def random_policy(board, player):
+def random_policy(board, player, info):
     # never surrender :)
     idx = minihex.empty_tiles(board)
     choice = np.random.randint(len(idx))
     return idx[choice]
 
 
-env = gym.make("hex-v0", opponent_policy=random_policy)
+env = gym.make("hex-v0", opponent_policy=random_policy, board_size=11)
 
 state = env.reset()
 done = False
+info = None
 while not done:
     board, player = state
-    action = random_policy(board, player)
-    state, reward, done, _ = env.step(action)
+    action = random_policy(board, player, info)
+    state, reward, done, info = env.step(action)
 
 env.render()
 
