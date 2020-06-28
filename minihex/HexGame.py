@@ -36,20 +36,52 @@ class HexGame(object):
             "SWAP": self.board_size ** 2 + 1
         })
 
-        if connected_stones is None:
-            self.connected_stones = {
-                player.WHITE: np.pad(np.zeros_like(self.board[0, ...]), 1),
-                player.BLACK: np.pad(np.zeros_like(self.board[0, ...]), 1)
-            }
-            self.connected_stones[player.WHITE][:, 0] = 1
-            self.connected_stones[player.BLACK][0, :] = 1
+        # if connected_stones is None:
+        #     self.connected_stones = {
+        #         player.WHITE: np.pad(np.zeros_like(self.board[0, ...]), 1),
+        #         player.BLACK: np.pad(np.zeros_like(self.board[0, ...]), 1)
+        #     }
+        #     self.connected_stones[player.WHITE][:, 0] = 1
+        #     self.connected_stones[player.BLACK][0, :] = 1
 
-            self.active_player = player.WHITE
-            self.flood_fill((0, 0))
-            self.active_player = player.BLACK
-            self.flood_fill((0, 0))
+        #     self.active_player = player.WHITE
+        #     self.flood_fill((0, 0))
+        #     self.active_player = player.BLACK
+        #     self.flood_fill((0, 0))
+        # else:
+        #     self.connected_stones = connected_stones
+
+        if connected_stones is None:
+            self.regions = {
+                player.BLACK: np.pad(np.zeros_like(self.board[0, ...]), 1),
+                player.WHITE: np.pad(np.zeros_like(self.board[0, ...]), 1)
+            }
+            self.regions[player.WHITE][:, 0] = 1
+            self.regions[player.BLACK][0, :] = 1
+            self.regions[player.WHITE][:, self.board_size + 1] = 2
+            self.regions[player.BLACK][self.board_size + 1, :] = 2
         else:
-            self.connected_stones = connected_stones
+            self.regions = connected_stones
+
+        self.region_counter = {
+            player.BLACK: np.max(self.regions[player.BLACK]) + 1,
+            player.WHITE: np.max(self.regions[player.WHITE]) + 1
+        }
+
+        if connected_stones is None:
+            self.active_player = player.WHITE
+            for y, row in enumerate(board[player.WHITE, ...]):
+                for x, value in enumerate(row):
+                    if value == 1:
+                        self.flood_fill2((y, x))
+
+            self.active_player = player.BLACK
+            for y, row in enumerate(board[player.BLACK, ...]):
+                for x, value in enumerate(row):
+                    if value == 1:
+                        self.flood_fill2((y, x))
+
+        # import pdb; pdb.set_trace()
 
         self.active_player = active_player
         self.player = focus_player
@@ -83,25 +115,25 @@ class HexGame(object):
 
         winner = None
         position = self.action_to_coordinate(action)
-        self.flood_fill(position)
+        self.flood_fill2(position)
+
         if self.active_player == player.BLACK:
-            conn = self.connected_stones[player.BLACK]
-            if np.any(conn[-2, :] == 1):
+            regions = self.regions[player.BLACK]
+            if np.any(regions[-1, :] == 1):
                 self.done = True
                 winner = player.BLACK
         else:
-            conn = self.connected_stones[player.WHITE]
-            if np.any(conn[:, -2] == 1):
+            regions = self.regions[player.WHITE]
+            if np.any(regions[:, -1] == 1):
                 self.done = True
                 winner = player.WHITE
         self.winner = winner
 
-        if np.all(self.board[2, :, :] == 0):
+        if np.all(self.board[2, ...] == 0):
             self.done = True
+            winner = None
 
         self.active_player = (self.active_player + 1) % 2
-        # if winner != None:
-        #     import pdb; pdb.set_trace()
         return winner
 
     def coordinate_to_action(self, coords):
@@ -114,6 +146,30 @@ class HexGame(object):
         coords = np.where(self.board[2, ...] == 1)
         move_actions = self.coordinate_to_action(coords)
         return move_actions  #+ [self.special_moves.RESIGN]
+
+    def flood_fill2(self, position):
+        regions = self.regions[self.active_player]
+        connections = np.array([[-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0]])
+
+        current_position = np.array(position) + np.array([1, 1])
+        neighbour_positions = current_position[np.newaxis, ...] + connections
+        ny = neighbour_positions[:, 0]
+        nx = neighbour_positions[:, 1]
+        adjacent_regions = sorted(np.unique(regions[ny, nx]).tolist())
+
+        if adjacent_regions[0] == 0:
+            adjacent_regions.pop(0)
+
+        if len(adjacent_regions) == 0:
+            regions[tuple(current_position)] = self.region_counter[self.active_player]
+            self.region_counter[self.active_player] += 1
+        elif len(adjacent_regions) == 1:
+            regions[tuple(current_position)] = adjacent_regions[0]
+        else:
+            new_region_label = adjacent_regions.pop(0)
+            regions[tuple(current_position)] = new_region_label
+            for label in adjacent_regions:
+                regions[regions == label] = new_region_label
 
     # @profile
     def flood_fill(self, position):
@@ -176,7 +232,7 @@ class HexEnv(gym.Env):
         self.previous_opponent_move = None
 
         # cache initial connection matrix (approx +100 games/s)
-        self.initial_connections = None
+        self.initial_regions = None
 
 
     @property
@@ -184,19 +240,18 @@ class HexEnv(gym.Env):
         return (self.player + 1) % 2
 
     def reset(self):
-        if self.initial_connections is None:
+        if self.initial_regions is None:
             self.simulator = HexGame(self.active_player,
                                      self.initial_board.copy(),
                                      self.player)
-            con_copy = deepcopy(self.simulator.connected_stones)
-            self.initial_connections = con_copy
-            # import pdb; pdb.set_trace()
+            regions = deepcopy(self.simulator.regions)
+            self.initial_regions = regions
         else:
-            con_copy = deepcopy(self.initial_connections)
+            regions = deepcopy(self.initial_regions)
             self.simulator = HexGame(self.active_player,
                                      self.initial_board.copy(),
                                      self.player,
-                                     connected_stones=con_copy)
+                                     connected_stones=regions)
 
         if self.player != self.active_player:
             info_opponent = {
