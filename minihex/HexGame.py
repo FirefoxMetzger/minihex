@@ -4,6 +4,7 @@ import numpy as np
 from enum import IntEnum
 from copy import deepcopy
 
+
 class player(IntEnum):
     BLACK = 0
     WHITE = 1
@@ -80,7 +81,19 @@ class HexGame(object):
         self.board[(2, *coords)] = 0
         self.board[(self.active_player, *coords)] = 1
 
-        winner = self.update_front(action)
+        winner = None
+        position = self.action_to_coordinate(action)
+        self.flood_fill(position)
+        if self.active_player == player.BLACK:
+            conn = self.connected_stones[player.BLACK]
+            if np.any(conn[-2, :] == 1):
+                self.done = True
+                winner = player.BLACK
+        else:
+            conn = self.connected_stones[player.WHITE]
+            if np.any(conn[:, -2] == 1):
+                self.done = True
+                winner = player.WHITE
         self.winner = winner
 
         if np.all(self.board[2, :, :] == 0):
@@ -101,21 +114,6 @@ class HexGame(object):
         coords = np.where(self.board[2, ...] == 1)
         move_actions = self.coordinate_to_action(coords)
         return move_actions  #+ [self.special_moves.RESIGN]
-
-    def update_front(self, action):
-        position = self.action_to_coordinate(action)
-        self.flood_fill(position)
-        if self.active_player == player.BLACK:
-            conn = self.connected_stones[player.BLACK]
-            if np.any(conn[-2, :] == 1):
-                self.done=True
-                return player.BLACK
-        else:
-            conn = self.connected_stones[player.WHITE]
-            if np.any(conn[:, -2] == 1):
-                self.done=True
-                return player.WHITE
-        return None
 
     # @profile
     def flood_fill(self, position):
@@ -175,6 +173,7 @@ class HexEnv(gym.Env):
         self.player = player_color
         self.simulator = None
         self.winner = None
+        self.previous_opponent_move = None
 
         # cache initial connection matrix (approx +100 games/s)
         self.initial_connections = None
@@ -200,7 +199,13 @@ class HexEnv(gym.Env):
                                      connected_stones=con_copy)
 
         if self.player != self.active_player:
-            self.opponent_move()
+            info_opponent = {
+                'state': self.simulator.board,
+                'last_move_opponent': action,
+                'last_move_player': self.previous_opponent_move
+            }
+            self.opponent_move(info_opponent)
+            # TODO: properly communicate previous moves
 
         return (self.simulator.board, self.active_player)
 
@@ -209,8 +214,14 @@ class HexEnv(gym.Env):
             self.winner = self.simulator.make_move(action)
 
         opponent_action = None
+
         if not self.simulator.done:
-            opponent_action = self.opponent_move()
+            info_opponent = {
+                'state': self.simulator.board,
+                'last_move_opponent': action,
+                'last_move_player': self.previous_opponent_move
+            }
+            opponent_action = self.opponent_move(info_opponent)
 
         if self.winner == self.player:
             reward = 1
@@ -226,7 +237,7 @@ class HexEnv(gym.Env):
         }
 
         return ((self.simulator.board, self.active_player), reward,
-                self.simulator.done, {'state': self.simulator.board})
+                self.simulator.done, info)
 
     def render(self, mode='ansi', close=False):
         board = self.simulator.board[:, 2:-2, 2:-2]
@@ -254,8 +265,10 @@ class HexEnv(gym.Env):
             print("-" * (board.shape[1] * 7 - 1), end="")
             print("")
 
-    def opponent_move(self):
+    def opponent_move(self, info):
         opponent_action = self.opponent_policy(self.simulator.board,
-                                               self.opponent)
+                                               self.opponent,
+                                               info)
         self.winner = self.simulator.make_move(opponent_action)
+        self.previous_opponent_move = opponent_action
         return opponent_action
