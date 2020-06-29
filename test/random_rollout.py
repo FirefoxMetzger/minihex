@@ -5,8 +5,8 @@ from minihex import player
 
 
 def random_policy(board, player, info):
-    # never surrender :)
-    idx = minihex.empty_tiles(board)
+    coords = np.where(board[2, ...] == 1)
+    idx = np.ravel_multi_index(coords, board.shape[1:])
     choice = np.random.randint(len(idx))
     return idx[choice]
 

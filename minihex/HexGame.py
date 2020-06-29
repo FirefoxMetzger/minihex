@@ -10,19 +10,11 @@ class player(IntEnum):
     WHITE = 1
 
 
-class Side(IntEnum):
-    NORTH = 0
-    EAST = 1
-    SOUTH = 2
-    WEST = 3
-
-
 def empty_tiles(board):
     coords = np.where(board[2, ...] == 1)
     idx = np.ravel_multi_index(coords, board.shape[1:])
     return idx
 
-CONNECTIONS = np.array([[-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0]])
 
 class HexGame(object):
     """
@@ -34,10 +26,10 @@ class HexGame(object):
         # track number of empty feelds for speed
         self.empty_fields = np.count_nonzero(board[2, ...])
 
-        self.special_moves = IntEnum("SpecialMoves", {
-            "RESIGN": self.board_size ** 2,
-            "SWAP": self.board_size ** 2 + 1
-        })
+        # self.special_moves = IntEnum("SpecialMoves", {
+        #     "RESIGN": self.board_size ** 2,
+        #     "SWAP": self.board_size ** 2 + 1
+        # })
 
         if connected_stones is None:
             self.regions = {
@@ -68,8 +60,6 @@ class HexGame(object):
                 for x, value in enumerate(row):
                     if value == 1:
                         self.flood_fill((y, x))
-
-        # import pdb; pdb.set_trace()
 
         self.active_player = active_player
         self.player = focus_player
@@ -128,7 +118,7 @@ class HexGame(object):
     def get_possible_actions(self):
         coords = np.where(self.board[2, ...] == 1)
         move_actions = self.coordinate_to_action(coords)
-        return move_actions  #+ [self.special_moves.RESIGN]
+        return move_actions
 
     def flood_fill(self, position):
         regions = self.regions[self.active_player]
@@ -167,15 +157,11 @@ class HexEnv(gym.Env):
                  board=None,
                  board_size=5):
         self.opponent_policy = opponent_policy
-        self.action_space = spaces.Discrete(board_size ** 2 + 1)
+        self.action_space = spaces.Discrete(board_size ** 2)
 
         if board is None:
-            board = np.zeros((3, board_size+4, board_size+4))
-            board[player.BLACK, :2, :] = 1
-            board[player.BLACK, -2:, :] = 1
-            board[player.WHITE, :, :2] = 1
-            board[player.WHITE, :, -2:] = 1
-            board[2, 2:-2, 2:-2] = 1
+            board = np.zeros((3, board_size, board_size))
+            board[2, ...] = 1
 
         self.initial_board = board
         self.active_player = active_player
@@ -186,7 +172,6 @@ class HexEnv(gym.Env):
 
         # cache initial connection matrix (approx +100 games/s)
         self.initial_regions = None
-
 
     @property
     def opponent(self):
@@ -206,16 +191,23 @@ class HexEnv(gym.Env):
                                      self.player,
                                      connected_stones=regions)
 
+        self.previous_opponent_move = None
+
         if self.player != self.active_player:
             info_opponent = {
                 'state': self.simulator.board,
-                'last_move_opponent': action,
-                'last_move_player': self.previous_opponent_move
+                'last_move_opponent': None,
+                'last_move_player': None
             }
             self.opponent_move(info_opponent)
-            # TODO: properly communicate previous moves
+            
+        info = {
+            'state': self.simulator.board,
+            'last_move_opponent': self.previous_opponent_move,
+            'last_move_player': None
+        }
 
-        return (self.simulator.board, self.active_player)
+        return (self.simulator.board, self.active_player), info
 
     def step(self, action):
         if not self.simulator.done:
@@ -248,7 +240,7 @@ class HexEnv(gym.Env):
                 self.simulator.done, info)
 
     def render(self, mode='ansi', close=False):
-        board = self.simulator.board[:, 2:-2, 2:-2]
+        board = self.simulator.board
         print(" " * 6, end="")
         for j in range(board.shape[1]):
             print(" ", j + 1, " ", end="")
