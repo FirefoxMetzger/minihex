@@ -21,7 +21,8 @@ class HexGame(object):
     Hex Game Environment.
     """
 
-    def __init__(self, active_player, board, focus_player, connected_stones=None):
+    def __init__(self, active_player, board,
+                 focus_player, connected_stones=None):
         self.board = board
         # track number of empty feelds for speed
         self.empty_fields = np.count_nonzero(board[2, ...])
@@ -123,23 +124,21 @@ class HexGame(object):
     def flood_fill(self, position):
         regions = self.regions[self.active_player]
 
-        current_position = (position[0] + 1, position[1] + 1)
-        low_x = current_position[1] - 1
-        high_x = current_position[1] + 2
-        low_y = current_position[0] - 1
-        high_y = current_position[0] + 2
-        neighbourhood = regions[low_y:high_y, low_x:high_x].copy()
-        neighbourhood[0, 0] = 0
-        neighbourhood[2, 2] = 0
-        adjacent_regions = sorted(set(neighbourhood.flatten().tolist()))
+        y, x = (position[0] + 1, position[1] + 1)
+        neighborhood = regions[(y - 1):(y + 2), (x - 1):(x + 2)].copy()
+        neighborhood[0, 0] = 0
+        neighborhood[2, 2] = 0
+        adjacent_regions = sorted(set(neighborhood.flatten().tolist()))
+
+        # region label = 0 is always present, but not a region
         adjacent_regions.pop(0)
 
         if len(adjacent_regions) == 0:
-            regions[tuple(current_position)] = self.region_counter[self.active_player]
+            regions[y, x] = self.region_counter[self.active_player]
             self.region_counter[self.active_player] += 1
         else:
             new_region_label = adjacent_regions.pop(0)
-            regions[tuple(current_position)] = new_region_label
+            regions[y, x] = new_region_label
             for label in adjacent_regions:
                 regions[regions == label] = new_region_label
 
@@ -200,7 +199,7 @@ class HexEnv(gym.Env):
                 'last_move_player': None
             }
             self.opponent_move(info_opponent)
-            
+
         info = {
             'state': self.simulator.board,
             'last_move_opponent': self.previous_opponent_move,
