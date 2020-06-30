@@ -1,12 +1,15 @@
 from minihex.HexGame import player as player
 from minihex.HexGame import empty_tiles
 from gym.envs.registration import register
+from minihex.HexGame import HexGame
+import numpy as np
 
 
-# def random_policy(state):
-#     possible_moves = game.get_possible_actions()
-#     action_idx = np.random.randint(len(possible_moves))
-#     return possible_moves[action_idx]
+def random_policy(board, player, info):
+    coords = np.where(board[2, ...] == 1)
+    idx = np.ravel_multi_index(coords, board.shape[1:])
+    choice = np.random.randint(len(idx))
+    return idx[choice]
 
 
 register(

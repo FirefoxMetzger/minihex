@@ -1,24 +1,16 @@
 import gym
 import minihex
-import numpy as np
-from minihex import player
 
 
-def random_policy(board, player, info):
-    coords = np.where(board[2, ...] == 1)
-    idx = np.ravel_multi_index(coords, board.shape[1:])
-    choice = np.random.randint(len(idx))
-    return idx[choice]
+env = gym.make("hex-v0",
+               opponent_policy=minihex.random_policy,
+               board_size=11)
 
-
-env = gym.make("hex-v0", opponent_policy=random_policy, board_size=11)
-
-state = env.reset()
+state, info = env.reset()
 done = False
-info = None
 while not done:
     board, player = state
-    action = random_policy(board, player, info)
+    action = minihex.random_policy(board, player, info)
     state, reward, done, info = env.step(action)
 
 env.render()

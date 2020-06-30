@@ -13,11 +13,6 @@ environment" to fit into the gym framework. We achieve this by requiring a
 followed by a move of the opponent. This is a function that takes as input a
 board state and outputs an action.
 
-Following the implementation details of 
-[Anthony et al.](https://arxiv.org/abs/1705.08439) we added a padded frame
-of size 2 around the environment that is filled with black/white stones
-respectively.
-
 ## Installation
 
 ~~pip install minihex~~ (TODO)
@@ -33,25 +28,18 @@ pip install -e minihex/
 ```
 import gym
 import minihex
-import numpy as np
-from minihex import player
 
 
-def random_policy(board, player):
-    # never surrender :)
-    idx = minihex.empty_tiles(board)
-    choice = np.random.randint(len(idx))
-    return idx[choice]
+env = gym.make("hex-v0",
+               opponent_policy=minihex.random_policy,
+               board_size=11)
 
-
-env = gym.make("hex-v0", opponent_policy=random_policy)
-
-state = env.reset()
+state, info = env.reset()
 done = False
 while not done:
     board, player = state
-    action = random_policy(board, player)
-    state, reward, done, _ = env.step(action)
+    action = minihex.random_policy(board, player, info)
+    state, reward, done, info = env.step(action)
 
 env.render()
 
@@ -71,6 +59,7 @@ Currently the enviornment is missing the following features to go to version 1.0
 - The swap action that is used to mitigate the disadvantage of playing second.
 - RGB rendering mode
 - add environment to pypi
+- no surrender action
 
 ## Bugs and Contributing
 If you encounter problems, check the [GitHub issue page](https://github.com/FirefoxMetzger/minihex/issues) or open a new issue there.
