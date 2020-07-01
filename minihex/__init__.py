@@ -1,5 +1,4 @@
 from minihex.HexGame import player as player
-from minihex.HexGame import empty_tiles
 from gym.envs.registration import register
 from minihex.HexGame import HexGame
 import numpy as np

@@ -10,12 +10,6 @@ class player(IntEnum):
     WHITE = 1
 
 
-def empty_tiles(board):
-    coords = np.where(board[2, ...] == 1)
-    idx = np.ravel_multi_index(coords, board.shape[1:])
-    return idx
-
-
 class HexGame(object):
     """
     Hex Game Environment.
@@ -100,7 +94,7 @@ class HexGame(object):
         regions = self.regions[self.active_player]
         if regions[-1, -1] == 1:
             self.done = True
-            winner = self.active_player
+            winner = player(self.active_player)
         self.winner = winner
 
         if self.empty_fields <= 0:
@@ -154,9 +148,9 @@ class HexEnv(gym.Env):
                  player_color=player.BLACK,
                  active_player=player.BLACK,
                  board=None,
+                 regions=None,
                  board_size=5):
         self.opponent_policy = opponent_policy
-        self.action_space = spaces.Discrete(board_size ** 2)
 
         if board is None:
             board = np.zeros((3, board_size, board_size))
@@ -170,11 +164,11 @@ class HexEnv(gym.Env):
         self.previous_opponent_move = None
 
         # cache initial connection matrix (approx +100 games/s)
-        self.initial_regions = None
+        self.initial_regions = regions
 
     @property
     def opponent(self):
-        return (self.player + 1) % 2
+        return player((self.player + 1) % 2)
 
     def reset(self):
         if self.initial_regions is None:
