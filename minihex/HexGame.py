@@ -2,7 +2,6 @@ import gym
 from gym import spaces
 import numpy as np
 from enum import IntEnum
-from copy import deepcopy
 
 
 class player(IntEnum):
@@ -27,10 +26,10 @@ class HexGame(object):
         # })
 
         if connected_stones is None:
-            self.regions = {
-                player.BLACK: np.pad(np.zeros_like(self.board[0, ...]), 1),
-                player.WHITE: np.pad(np.zeros_like(self.board[0, ...]), 1)
-            }
+            self.regions = np.stack([
+                np.pad(np.zeros_like(self.board[0, ...]), 1),
+                np.pad(np.zeros_like(self.board[0, ...]), 1)
+            ], axis=0)
             self.regions[player.WHITE][:, 0] = 1
             self.regions[player.BLACK][0, :] = 1
             self.regions[player.WHITE][:, self.board_size + 1] = 2
@@ -38,10 +37,9 @@ class HexGame(object):
         else:
             self.regions = connected_stones
 
-        self.region_counter = {
-            player.BLACK: np.max(self.regions[player.BLACK]) + 1,
-            player.WHITE: np.max(self.regions[player.WHITE]) + 1
-        }
+        self.region_counter = np.zeros(2)
+        self.region_counter[player.BLACK] = np.max(self.regions[player.BLACK]) + 1
+        self.region_counter[player.WHITE] = np.max(self.regions[player.WHITE]) + 1
 
         if connected_stones is None:
             self.active_player = player.WHITE
@@ -61,16 +59,15 @@ class HexGame(object):
         self.done = False
         self.winner = None
 
+        self.actions = np.arange(self.board_size ** 2)
+
     @property
     def board_size(self):
         return self.board.shape[1]
 
     def is_valid_move(self, action):
         coords = self.action_to_coordinate(action)
-        if self.board[2, coords[0], coords[1]] == 1:
-            return True
-        else:
-            return False
+        return bool(self.board[2, coords[0], coords[1]])
 
     def make_move(self, action):
         # # currently resigning is not a possible option
@@ -83,21 +80,20 @@ class HexGame(object):
             raise Exception(("Illegal move "
                              f"{self.action_to_coordinate(action)}"))
 
-        position = self.action_to_coordinate(action)
-        self.board[(2, *position)] = 0
-        self.board[(self.active_player, *position)] = 1
+        y, x = self.action_to_coordinate(action)
+        self.board[(2, y, x)] = 0
+        self.board[(self.active_player, y, x)] = 1
         self.empty_fields -= 1
 
-        winner = None
-        self.flood_fill(position)
+        self.flood_fill((y, x))
 
+        winner = None
         regions = self.regions[self.active_player]
         if regions[-1, -1] == 1:
             self.done = True
             winner = player(self.active_player)
-        self.winner = winner
-
-        if self.empty_fields <= 0:
+            self.winner = winner
+        elif self.empty_fields <= 0:
             self.done = True
             winner = None
 
@@ -108,12 +104,12 @@ class HexGame(object):
         return np.ravel_multi_index(coords, (self.board_size, self.board_size))
 
     def action_to_coordinate(self, action):
-        return np.unravel_index(action, (self.board_size, self.board_size))
+        y = action // self.board_size
+        x = action - self.board_size * y
+        return (y, x)
 
     def get_possible_actions(self):
-        coords = np.where(self.board[2, ...] == 1)
-        move_actions = self.coordinate_to_action(coords)
-        return move_actions
+        return self.actions[self.board[2, ...].flatten() == 1]
 
     def flood_fill(self, position):
         regions = self.regions[self.active_player]
@@ -175,10 +171,10 @@ class HexEnv(gym.Env):
             self.simulator = HexGame(self.active_player,
                                      self.initial_board.copy(),
                                      self.player)
-            regions = deepcopy(self.simulator.regions)
+            regions = self.simulator.regions.copy()
             self.initial_regions = regions
         else:
-            regions = deepcopy(self.initial_regions)
+            regions = self.initial_regions.copy()
             self.simulator = HexGame(self.active_player,
                                      self.initial_board.copy(),
                                      self.player,
