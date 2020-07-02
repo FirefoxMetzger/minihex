@@ -7,6 +7,7 @@ from enum import IntEnum
 class player(IntEnum):
     BLACK = 0
     WHITE = 1
+    EMPTY = 2
 
 
 class HexGame(object):
@@ -18,7 +19,7 @@ class HexGame(object):
                  focus_player, connected_stones=None):
         self.board = board
         # track number of empty feelds for speed
-        self.empty_fields = np.count_nonzero(board[2, ...])
+        self.empty_fields = np.count_nonzero(board == player.EMPTY)
 
         # self.special_moves = IntEnum("SpecialMoves", {
         #     "RESIGN": self.board_size ** 2,
@@ -27,8 +28,8 @@ class HexGame(object):
 
         if connected_stones is None:
             self.regions = np.stack([
-                np.pad(np.zeros_like(self.board[0, ...]), 1),
-                np.pad(np.zeros_like(self.board[0, ...]), 1)
+                np.pad(np.zeros_like(self.board), 1),
+                np.pad(np.zeros_like(self.board), 1)
             ], axis=0)
             self.regions[player.WHITE][:, 0] = 1
             self.regions[player.BLACK][0, :] = 1
@@ -42,16 +43,13 @@ class HexGame(object):
         self.region_counter[player.WHITE] = np.max(self.regions[player.WHITE]) + 1
 
         if connected_stones is None:
-            self.active_player = player.WHITE
-            for y, row in enumerate(board[player.WHITE, ...]):
+            for y, row in enumerate(board):
                 for x, value in enumerate(row):
-                    if value == 1:
+                    if value == player.BLACK:
+                        self.active_player = player.BLACK
                         self.flood_fill((y, x))
-
-            self.active_player = player.BLACK
-            for y, row in enumerate(board[player.BLACK, ...]):
-                for x, value in enumerate(row):
-                    if value == 1:
+                    elif value == player.WHITE:
+                        self.active_player = player.BLACK
                         self.flood_fill((y, x))
 
         self.active_player = active_player
@@ -67,7 +65,7 @@ class HexGame(object):
 
     def is_valid_move(self, action):
         coords = self.action_to_coordinate(action)
-        return bool(self.board[2, coords[0], coords[1]])
+        return self.board[coords[0], coords[1]] == player.EMPTY
 
     def make_move(self, action):
         # # currently resigning is not a possible option
@@ -81,8 +79,7 @@ class HexGame(object):
                              f"{self.action_to_coordinate(action)}"))
 
         y, x = self.action_to_coordinate(action)
-        self.board[(2, y, x)] = 0
-        self.board[(self.active_player, y, x)] = 1
+        self.board[y, x] = self.active_player
         self.empty_fields -= 1
 
         self.flood_fill((y, x))
@@ -109,7 +106,7 @@ class HexGame(object):
         return (y, x)
 
     def get_possible_actions(self):
-        return self.actions[self.board[2, ...].flatten() == 1]
+        return self.actions[self.board.flatten() == player.EMPTY]
 
     def flood_fill(self, position):
         regions = self.regions[self.active_player]
@@ -149,8 +146,7 @@ class HexEnv(gym.Env):
         self.opponent_policy = opponent_policy
 
         if board is None:
-            board = np.zeros((3, board_size, board_size))
-            board[2, ...] = 1
+            board = player.EMPTY * np.ones((board_size, board_size))
 
         self.initial_board = board
         self.active_player = active_player
@@ -242,9 +238,9 @@ class HexEnv(gym.Env):
             print(" " * (1 + i * 3), i + 1, " ", end="")
             print("|", end="")
             for j in range(board.shape[1]):
-                if board[2, i, j] == 1:
+                if board[i, j] == player.EMPTY:
                     print("  O  ", end="")
-                elif board[0, i, j] == 1:
+                elif board[i, j] == player.BLACK:
                     print("  B  ", end="")
                 else:
                     print("  W  ", end="")
