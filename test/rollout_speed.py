@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 env = gym.make("hex-v0",
                opponent_policy=minihex.random_policy,
-               board_size=5)
+               board_size=11)
 
 
 for _ in tqdm(range(10000)):
