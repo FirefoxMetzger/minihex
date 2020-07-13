@@ -49,7 +49,7 @@ class HexGame(object):
                         self.active_player = player.BLACK
                         self.flood_fill((y, x))
                     elif value == player.WHITE:
-                        self.active_player = player.BLACK
+                        self.active_player = player.WHITE
                         self.flood_fill((y, x))
 
         self.active_player = active_player
