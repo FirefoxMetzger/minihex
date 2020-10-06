@@ -3,9 +3,9 @@
 An [OpenAI gym](https://github.com/openai/gym/) environment that allows an 
 agent to play the game of [Hex](https://en.wikipedia.org/wiki/Hex_(board_game)).
 The aim for this environment is to be lean and have fast rollouts, as well as,
-variable board size. With random actions it currently achieves **~1800 games per 
-second** in a 5x5 grid on a single CPU (Intel Xenon E3-1230 @3.3GHz) and 
-**~340 games per second** in a 11x11 grid (original size).
+variable board size. With random actions it currently achieves 
+**~340 games per second** in a 11x11 grid (original size) on a single CPU 
+(Intel Xenon E3-1230 @3.3GHz).
 
 Hex is a two player game and needs to be converted into a "single agent 
 environment" to fit into the gym framework. We achieve this by requiring a
@@ -15,7 +15,7 @@ board state and outputs an action.
 
 ## Installation
 
-~~pip install minihex~~ (TODO)
+pip install minihex
 
 Editable installation (if you wish to tweak the environment):
 ```
