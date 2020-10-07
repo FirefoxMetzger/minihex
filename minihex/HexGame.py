@@ -77,7 +77,7 @@ class HexGame(object):
             raise IndexError(("Illegal move "
                              f"{self.action_to_coordinate(action)}"))
 
-        return make_move(self, action)
+        return self.fast_move(action)
 
     def fast_move(self, action):
         # # currently resigning is not a possible option
@@ -150,7 +150,8 @@ class HexEnv(gym.Env):
                  active_player=player.BLACK,
                  board=None,
                  regions=None,
-                 board_size=5):
+                 board_size=5,
+                 debug=False):
         self.opponent_policy = opponent_policy
 
         if board is None:
@@ -162,6 +163,7 @@ class HexEnv(gym.Env):
         self.simulator = None
         self.winner = None
         self.previous_opponent_move = None
+        self.debug = debug
 
         # cache initial connection matrix (approx +100 games/s)
         self.initial_regions = regions
@@ -174,7 +176,8 @@ class HexEnv(gym.Env):
         if self.initial_regions is None:
             self.simulator = HexGame(self.active_player,
                                      self.initial_board.copy(),
-                                     self.player)
+                                     self.player,
+                                     debug=self.debug)
             regions = self.simulator.regions.copy()
             self.initial_regions = regions
         else:
@@ -182,7 +185,8 @@ class HexEnv(gym.Env):
             self.simulator = HexGame(self.active_player,
                                      self.initial_board.copy(),
                                      self.player,
-                                     connected_stones=regions)
+                                     connected_stones=regions,
+                                     debug=self.debug)
 
         self.previous_opponent_move = None
 
