@@ -75,7 +75,7 @@ class HexGame(object):
         #     return (self.active_player + 1) % 2
 
         if not self.is_valid_move(action):
-            raise Exception(("Illegal move "
+            raise IndexError(("Illegal move "
                              f"{self.action_to_coordinate(action)}"))
 
         y, x = self.action_to_coordinate(action)
