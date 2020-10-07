@@ -16,10 +16,15 @@ class HexGame(object):
     """
 
     def __init__(self, active_player, board,
-                 focus_player, connected_stones=None):
+                 focus_player, connected_stones=None, debug=False):
         self.board = board
         # track number of empty feelds for speed
         self.empty_fields = np.count_nonzero(board == player.EMPTY)
+
+        if debug:
+            self.make_move = self.make_move_debug
+        else:
+            self.make_move = self.fast_move
 
         # self.special_moves = IntEnum("SpecialMoves", {
         #     "RESIGN": self.board_size ** 2,
@@ -67,16 +72,19 @@ class HexGame(object):
         coords = self.action_to_coordinate(action)
         return self.board[coords[0], coords[1]] == player.EMPTY
 
-    def make_move(self, action):
+    def make_move_debug(self, action):
+        if not self.is_valid_move(action):
+            raise IndexError(("Illegal move "
+                             f"{self.action_to_coordinate(action)}"))
+
+        return make_move(self, action)
+
+    def fast_move(self, action):
         # # currently resigning is not a possible option
         # if action == self.special_moves.RESIGN:
         #     self.done = True
         #     self.winner = (self.active_player + 1) % 2
         #     return (self.active_player + 1) % 2
-
-        if not self.is_valid_move(action):
-            raise IndexError(("Illegal move "
-                             f"{self.action_to_coordinate(action)}"))
 
         y, x = self.action_to_coordinate(action)
         self.board[y, x] = self.active_player

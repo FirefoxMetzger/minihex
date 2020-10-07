@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="minihex",
-    version="0.0.1",
+    version="1.0.0",
     author="Sebastian Wallkotter",
     author_email="sebastian@wallkoetter.net",
     description=("The game of Hex implemented for reinforcement learning in"

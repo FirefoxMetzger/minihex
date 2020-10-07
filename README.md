@@ -52,6 +52,15 @@ else:
 
 ```
 
+## Debug Mode
+
+If the environment is instantiated with `debug=True` each step will check if a
+valid action is provided, and an `IndexError` will be raised if an invalid one
+is provided. This is very useful while writing agents, e.g., if the agent
+maintains it's own belief over the environment and may request invalid actions.
+When evaluating/running at scale, however, this check can cause significant
+slowdown. Hence, it is only performed if explicitly requested.
+
 ## Limitations
 
 Currently the enviornment is missing the following features to go to version 1.0
