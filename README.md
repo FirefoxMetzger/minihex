@@ -15,9 +15,11 @@ board state and outputs an action.
 
 ## Installation
 
-pip install minihex
+Get it from PyPi:
 
-Editable installation (if you wish to tweak the environment):
+`pip install minihex`
+
+Or as an editable installation (if you wish to tweak the environment):
 ```
 git clone https://github.com/FirefoxMetzger/minihex.git
 pip install -e minihex/
