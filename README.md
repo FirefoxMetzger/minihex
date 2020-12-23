@@ -19,7 +19,7 @@ Get it from PyPi:
 
 `pip install minihex`
 
-Or an editable installation (if you wish to tweak the environment):
+Or as an editable installation (if you wish to tweak the environment):
 ```
 git clone https://github.com/FirefoxMetzger/minihex.git
 pip install -e minihex/
